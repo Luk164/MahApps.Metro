@@ -60,6 +60,34 @@ namespace MahApps.Metro.Controls
                                                                         OnTextChanged));
         }
 
+        /// <summary>Identifies the <see cref="OpenSuggestionsOnFocus"/> dependency property.</summary>
+        public static readonly DependencyProperty OpenSuggestionsOnFocusProperty
+            = DependencyProperty.Register(nameof(OpenSuggestionsOnFocus),
+                                           typeof(bool),
+                                           typeof(AutoSuggestBox),
+                                           new PropertyMetadata(BooleanBoxes.FalseBox, OnOpenSuggestionsOnFocusChanged));
+
+        /// <summary>
+        /// Gets or sets whether the list opens as soon as the box gets keyboard focus, showing every
+        /// suggestion there is. Typing a query then merely narrows what is shown, and clearing the query
+        /// brings every suggestion back, same as a fresh focus would.
+        /// </summary>
+        public bool OpenSuggestionsOnFocus
+        {
+            get => (bool)this.GetValue(OpenSuggestionsOnFocusProperty);
+            set => this.SetValue(OpenSuggestionsOnFocusProperty, BooleanBoxes.Box(value));
+        }
+
+        private static void OnOpenSuggestionsOnFocusChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
+        {
+            var autoSuggestBox = (AutoSuggestBox)dependencyObject;
+
+            if (autoSuggestBox.IsKeyboardFocusWithin)
+            {
+                autoSuggestBox.UpdateTheList(true);
+            }
+        }
+
         /// <summary>Identifies the <see cref="TextChanged"/> routed event.</summary>
         public static readonly RoutedEvent TextChangedEvent
             = EventManager.RegisterRoutedEvent(nameof(TextChanged),
@@ -126,6 +154,17 @@ namespace MahApps.Metro.Controls
         }
 
         /// <inheritdoc />
+        protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+        {
+            base.OnGotKeyboardFocus(e);
+
+            if (this.OpenSuggestionsOnFocus)
+            {
+                this.UpdateTheList(true);
+            }
+        }
+
+        /// <inheritdoc />
         protected override void OnItemsChanged(NotifyCollectionChangedEventArgs e)
         {
             base.OnItemsChanged(e);
@@ -160,8 +199,11 @@ namespace MahApps.Metro.Controls
         /// </summary>
         private void UpdateTheList(bool mayOpen)
         {
-            // an empty box has nothing to suggest, and a list with nothing in it is a sliver of border
-            var worthShowing = !string.IsNullOrEmpty(this.Text) && this.HasItems;
+            // an empty box has nothing to suggest, and a list with nothing in it is a sliver of border.
+            // With OpenSuggestionsOnFocus the list is worth showing while the box has focus even without
+            // a query, since the query then only narrows what is already on display.
+            var worthShowing = this.HasItems
+                                && (!string.IsNullOrEmpty(this.Text) || (this.OpenSuggestionsOnFocus && this.IsKeyboardFocusWithin));
 
             if (worthShowing == this.IsDropDownOpen || (worthShowing && !mayOpen))
             {
